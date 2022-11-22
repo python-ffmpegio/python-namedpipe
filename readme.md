@@ -6,7 +6,9 @@
 ![GitHub License](https://img.shields.io/github/license/python-ffmpegio/python-namedpipe)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/python-ffmpegio/python-namedpipe/Run%20Tests)
 
-Python only natively supports named pipes in Posix systems via `os.mkfifo`. This package extends the support to Windows and defines a `NPopen` class as a cross-platform solution to manage named pipes.
+Python natively supports named pipes only in Posix systems via `os.mkfifo`. 
+This package extends the support to Windows and defines a `NPopen` class as 
+a cross-platform solution to manage named pipes.
 
 ## Installation
 
@@ -34,7 +36,6 @@ with NPopen('r+') as pipe: # bidirectional (duplex) binary pipe
     # - Windows: \\.\pipe\[0-9]+
 
     # 3. Wait for the client to connect and create a stream
-    #    - accepts other open() arguments: buffering, encoding, error, newline
     #    - blocks until connection is established
     #    - returns an io-compatible stream
     stream = pipe.wait()
@@ -50,8 +51,8 @@ with NPopen('r+') as pipe: # bidirectional (duplex) binary pipe
     
     stream.write(out_bytes)
 
-# 5. automatically closes the stream and destroys the pipe object 
-#    when out of the contenxt
+# 5. the stream is automatically closed and the pipe object is destroyed
+#    when comes out of the contenxt
 ```
 
 ## API Reference
