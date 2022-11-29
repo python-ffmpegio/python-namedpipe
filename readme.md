@@ -41,18 +41,18 @@ with NPopen('r+') as pipe: # bidirectional (duplex) binary pipe
     stream = pipe.wait()
 
     # 4. Perform read/write operation with stream (or pipe.stream) as a file-like object
-    b = stream.read(64)
-    b = pipe.stream.read(64) # alternate
+    b = stream.read(64)      # read 64 bytes from the client
+    b = pipe.stream.read(64) # same call but using the stream property
 
     in_bytes = bytearray(128)
-    nread = stream.readinto(in_bytes)
+    nread = stream.readinto(in_bytes) # read 128 bytes of data from client and place them in in_bytes
 
-    b_rest = stream.readall()
+    b_rest = stream.readall() # read all bytes sent by the client, block till client closes the pipe
     
-    stream.write(out_bytes)
+    stream.write(out_bytes) # send bytes in out_bytes to the client
 
 # 5. the stream is automatically closed and the pipe object is destroyed
-#    when comes out of the contenxt
+#    when comes out of the context
 ```
 
 ## API Reference
