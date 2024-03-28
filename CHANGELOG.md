@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [0.1.1] - 2024-03-27
+
 ### Changed
 - Dropped support for py3.7
 - Removed unnecessary dependency `"typing_extensions;python_version<'3.8'"`
