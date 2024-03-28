@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ### Changed
 - Dropped support for py3.7
-
+- Removed unnecessary dependency `"typing_extensions;python_version<'3.8'"`
 
 ### Fixed
 
