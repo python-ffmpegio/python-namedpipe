@@ -1,7 +1,7 @@
 import win32pipe, win32file, win32api, winerror, win32con, pywintypes
 from os import path
 import io
-from typing import TypeVar, NewType, Literal, IO, Optional
+from typing import TypeVar, NewType, Literal, IO, Optional, Union
 
 WritableBuffer = TypeVar("WritableBuffer")
 PyHANDLE = NewType("PyHANDLE", int)
@@ -44,7 +44,7 @@ class NPopen:
         if not isinstance(bufsize, int):
             raise TypeError("bufsize must be an integer")
 
-        self.stream: IO | None = None  # I/O stream of the pipe
+        self.stream: Union[IO, None] = None  # I/O stream of the pipe
         self._path = _name_pipe() if name is None else rf"\\.\pipe\{name}"
         self._rd = any(c in mode for c in "r+")
         self._wr = any(c in mode for c in "wax+")
@@ -143,9 +143,7 @@ class NPopen:
             Wrapper = (
                 io.BufferedRandom
                 if self._rd and self._wr
-                else io.BufferedReader
-                if self._rd
-                else io.BufferedWriter
+                else io.BufferedReader if self._rd else io.BufferedWriter
             )
             stream = Wrapper(
                 stream, self._bufsize if self._bufsize > 0 else io.DEFAULT_BUFFER_SIZE
@@ -207,7 +205,7 @@ class Win32RawIO(io.RawIOBase):
 
         super().close()
 
-    def readinto(self, b: WritableBuffer) -> int | None:
+    def readinto(self, b: WritableBuffer) -> Union[int, None]:
         """Read bytes into a pre-allocated, writable bytes-like object ``b`` and
         return the number of bytes read. For example, ``b`` might be a ``bytearray``."""
 

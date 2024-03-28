@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - Dropped support for py3.7
 
 
+### Fixed
+
+- Reverted the use of the new Union type hint (|) unsupported in py3.8 to old `Union[]` syntax [issue#1;issue#2]
+
 ## [0.1.0] - 2022-11-22
 
 Initial release

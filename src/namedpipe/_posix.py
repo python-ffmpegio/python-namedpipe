@@ -1,6 +1,6 @@
 import os, tempfile
 from os import path
-from typing import IO, Optional
+from typing import IO, Optional, Union
 try:
     from typing import Literal  # type: ignore
 except ImportError:
@@ -67,7 +67,7 @@ class NPopen:
     ):
         # "open" named pipe
         self._path = _FifoMan().make(name)
-        self.stream: IO | None = None  # I/O stream of the pipe
+        self.stream: Union[IO, None] = None  # I/O stream of the pipe
 
         if 't' not in mode and 'b' not in mode:
             mode += 'b' # default to binary mode
