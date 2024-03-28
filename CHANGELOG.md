@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+### Changed
+- Dropped support for py3.7
+
+
 ## [0.1.0] - 2022-11-22
 
 Initial release
