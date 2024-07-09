@@ -38,15 +38,16 @@ jobs:
     steps:
       - run: echo ${{github.ref}}
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Set up FFmpeg
-        uses: FedericoCarboni/setup-ffmpeg@v1
+        uses: FedericoCarboni/setup-ffmpeg@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          architecture: x64
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.arch }}
@@ -68,10 +69,10 @@ jobs:
     needs: tests
     if: startsWith(github.ref, 'refs/tags')
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: "3.x" # Version range or exact version of a Python version to use, using SemVer's version range syntax
 
