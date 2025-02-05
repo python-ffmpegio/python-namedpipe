@@ -113,3 +113,12 @@ class NPopen:
 
     def __exit__(self, *_):
         self.close()
+
+    def readable(self)->bool:
+        """True if pipe's stream is readable"""        
+        return any(c in self._open_args['mode'] for c in 'r+')
+    
+    def writable(self)->bool:
+        """True if pipe's stream is writable"""        
+        return any(c in self._open_args['mode'] for c in 'wxa+')
+    

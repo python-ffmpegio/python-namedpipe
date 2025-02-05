@@ -24,6 +24,8 @@ def run_ffmpeg(pipe):
 
 def test_read_all():
     with NPopen("r") as pipe:
+        assert pipe.readable()
+        assert not pipe.writable()
         proc, nbytes = run_ffmpeg(pipe)
         f = pipe.wait()
         while f.read(nbytes):

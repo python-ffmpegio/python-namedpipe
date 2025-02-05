@@ -164,7 +164,15 @@ class NPopen:
     def __exit__(self, *_):
         self.close()
 
-
+    def readable(self)->bool:
+        """True if pipe's stream is readable"""        
+        return self._rd
+        
+    def writable(self)->bool:
+        """True if pipe's stream is writable"""        
+        return self._wr
+        
+    
 class Win32RawIO(io.RawIOBase):
     """Raw I/O stream layer over open Windows pipe handle.
 

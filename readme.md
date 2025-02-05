@@ -28,6 +28,9 @@ with NPopen('r+') as pipe: # bidirectional (duplex) binary pipe
     # - for an inbound pipe, specify the read access mode 'rb' or 'rt' 
     # - for an outbound pipe, specify the write access mode 'wb or 'wt'
 
+    pipe.readable() # returns True if yields a readable stream
+    pipe.writable() # returns True if yields a writable stream
+
     # 2. Get the pipe path via pipe.path or str(pipe) to start the client program
     sp.run(['my_client', pipe.path])
 
