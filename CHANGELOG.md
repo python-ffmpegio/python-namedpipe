@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-02-11
+
+### Fixed
+
+- [Issue #3] fixed throwing exception when Windows raises ERROR_PIPE_CONNECTED error, which is an OK behavior
+
 ## [0.2.0] - 2025-02-04
 
 ### Added
