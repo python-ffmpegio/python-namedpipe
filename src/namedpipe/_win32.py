@@ -134,7 +134,9 @@ class NPopen:
 
         # wait for the pipe to open (the other end to be opened) and return fileobj to read/write
         if win32pipe.ConnectNamedPipe(self._pipe, None):
-            raise _win_error()
+            code = win32api.GetLastError()
+            if code != 535: # ERROR_PIPE_CONNECTED (ok, just indicating that the client has already connected)(Issue#3)
+                raise _win_error(code)
 
         # create new io stream object
         stream = Win32RawIO(self._pipe, self._rd, self._wr)
@@ -164,15 +166,15 @@ class NPopen:
     def __exit__(self, *_):
         self.close()
 
-    def readable(self)->bool:
-        """True if pipe's stream is readable"""        
+    def readable(self) -> bool:
+        """True if pipe's stream is readable"""
         return self._rd
-        
-    def writable(self)->bool:
-        """True if pipe's stream is writable"""        
+
+    def writable(self) -> bool:
+        """True if pipe's stream is writable"""
         return self._wr
-        
-    
+
+
 class Win32RawIO(io.RawIOBase):
     """Raw I/O stream layer over open Windows pipe handle.
 
