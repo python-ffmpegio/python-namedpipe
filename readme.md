@@ -4,7 +4,7 @@
 ![PyPI - Status]( https://img.shields.io/pypi/status/namedpipe)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/namedpipe)
 ![GitHub License](https://img.shields.io/github/license/python-ffmpegio/python-namedpipe)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/python-ffmpegio/python-namedpipe/Run%20Tests)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/python-ffmpegio/python-namedpipe/test_n_pub.yml?branch=master)
 
 Python natively supports named pipes only in Posix systems via `os.mkfifo`. 
 This package extends the support to Windows and defines a `NPopen` class as 
