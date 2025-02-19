@@ -113,7 +113,7 @@ class NPopen:
 
     def __exit__(self, *_):
         self.close()
-        return True
+        return False
 
     def readable(self)->bool:
         """True if pipe's stream is readable"""        

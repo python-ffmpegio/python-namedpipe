@@ -6,11 +6,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-02-19
+
+### Fixed
+
+- `__exit__` to re-raise the exception by returning `False` (reverted v0.2.2)
+
 ## [0.2.2] - 2025-02-19
 
 ### Fixed
 
-- `__exit__` to suppress any exception by returning `True
+- `__exit__` to suppress any exception by returning `True`
 
 ## [0.2.1] - 2025-02-11
 
