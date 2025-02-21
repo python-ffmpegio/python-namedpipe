@@ -230,10 +230,11 @@ class Win32RawIO(io.RawIOBase):
                 hr, res = win32file.ReadFile(self.handle, size - nread)
                 if hr in (winerror.ERROR_MORE_DATA, winerror.ERROR_IO_PENDING):
                     raise _win_error(hr)
-            except pywintypes.error:
-                if win32api.GetLastError() == winerror.ERROR_BROKEN_PIPE:
+            except pywintypes.error as e:
+                if e.args[0] == 109:  # broken pipe error
                     break
-                raise
+                else:
+                    raise e
             if not len(res):
                 break
             nnext = nread + len(res)
