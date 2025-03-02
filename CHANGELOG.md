@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [0.2.5] - 2025-03-01
+
+### Fixed
+
+- Fixed pipe and stream checks by testing to be not None
+
 ## [0.2.4] - 2025-02-21
 
 ### Fixed
