@@ -119,10 +119,10 @@ class NPopen:
 
     def close(self):
         # close named pipe
-        if self.stream:
+        if self.stream is not None:
             self.stream.close()
             self.stream = None
-        if self._pipe:
+        if self._pipe is not None:
             if win32file.CloseHandle(self._pipe):
                 raise _win_error()
             self._pipe = None
@@ -210,7 +210,7 @@ class Win32RawIO(io.RawIOBase):
         be called more than once without error."""
         if self.closed:
             return
-        if self.handle:
+        if self.handle is not None:
             win32file.CloseHandle(self.handle)
             self.handle = None
 

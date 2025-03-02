@@ -90,7 +90,7 @@ class NPopen:
 
     def close(self):
         # close named pipe
-        if self.stream:
+        if self.stream is not None:
             self.stream.close()
             self.stream = None
         if path.exists(self._path):
