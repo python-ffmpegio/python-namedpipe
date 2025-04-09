@@ -137,8 +137,7 @@ class NPopen:
             self.stream.close()
             self.stream = None
         if self._pipe is not None:
-            if not self.kernel32.CloseHandle(self._pipe):
-                raise _win_error()
+            self.kernel32.CloseHandle(self._pipe)
             self._pipe = None
 
     def wait(self):
@@ -260,9 +259,9 @@ class Win32RawIO(io.RawIOBase):
         assert self.handle is not None  # show type checkers we already checked
         assert self._writable
         size = len(b)
-        nwritten = wintypes.DWORD(0)
+        nwritten = _wt(0)
         buf = (ctypes.c_char * size).from_buffer_copy(b)
-        if not self.kernel32.WriteFile(self.handle, buf, size, ctypes.byref(nwritten), None):
+        if not self.kernel32.WriteFile(self.handle, buf, _wt(size), ctypes.byref(nwritten), None):
             raise _win_error()
 
         return nwritten.value
