@@ -102,7 +102,7 @@ class NPopen:
         # TODO: assess options: PIPE_WAIT, PIPE_NOWAIT, PIPE_ACCEPT_REMOTE_CLIENTS, PIPE_REJECT_REMOTE_CLIENTS
 
         max_instances = _wt(1) # PIPE_UNLIMITED_INSTANCES returns 'invalid params'. Pipes are point-to-point anyway
-        buffer_size = _wt(65536) # in all examples online provide 64KB buffer. 0 doesn't fail CreateNamedPipeW, but maybe performance better?
+        buffer_size = _wt(0)
         timeout = _wt(0)
 
         # "open" named pipe
@@ -243,7 +243,10 @@ class Win32RawIO(io.RawIOBase):
         success = self.kernel32.ReadFile(self.handle, buf, size, ctypes.byref(nread), None)
         if not success:
             code = ctypes.get_last_error()
-            if code not in (ERROR_MORE_DATA, ERROR_IO_PENDING):
+            # ERROR_MORE_DATA - not big deal, will read next time
+            # ERROR_IO_PENDING - should not happen, unless use OVERLAPPING, which we don't so far
+            # ERROR_BROKEN_PIPE - pipe was closed from other end. While it is an error, test seemingly expects to receive 0 instead of exception
+            if code not in (ERROR_MORE_DATA, ERROR_IO_PENDING, ERROR_BROKEN_PIPE):
                 raise _win_error(code)
 
         return nread.value
