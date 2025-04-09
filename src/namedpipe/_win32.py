@@ -20,7 +20,7 @@ ERROR_BROKEN_PIPE = 109
 ERROR_MORE_DATA = 234
 ERROR_IO_PENDING = 997
 FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000
-INVALID_HANDLE_VALUE = wintypes.HANDLE(-1).value
+INVALID_HANDLE_VALUE = -1
 
 id = 0
 
@@ -41,18 +41,8 @@ def _name_pipe():
 
 def _win_error(code=None):
     if not code:
-        code = ctypes.GetLastError()
-    buf = ctypes.create_unicode_buffer(256)
-    ctypes.FormatMessageW(
-        FORMAT_MESSAGE_FROM_SYSTEM,
-        None,
-        code,
-        0,
-        buf,
-        len(buf),
-        None
-    )
-    return OSError(f"[OS Error {code}] {buf.value}")
+        code = ctypes.get_last_error()
+    return ctypes.WinError(code)
 
 class NPopen:
     def __init__(
@@ -69,6 +59,7 @@ class NPopen:
         if not isinstance(bufsize, int):
             raise TypeError("bufsize must be an integer")
 
+        self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
         self.stream: Union[IO, None] = None  # I/O stream of the pipe
         self._path = _name_pipe() if name is None else rf"\\.\pipe\{name}"
         self._rd = any(c in mode for c in "r+")
@@ -110,13 +101,12 @@ class NPopen:
 
         # TODO: assess options: PIPE_WAIT, PIPE_NOWAIT, PIPE_ACCEPT_REMOTE_CLIENTS, PIPE_REJECT_REMOTE_CLIENTS
 
-        max_instances = _wt(PIPE_UNLIMITED_INSTANCES)
-        buffer_size = _wt(0)
+        max_instances = _wt(1) # PIPE_UNLIMITED_INSTANCES returns 'invalid params'. Pipes are point-to-point anyway
+        buffer_size = _wt(65536) # in all examples online provide 64KB buffer. 0 doesn't fail CreateNamedPipeW, but maybe performance better?
         timeout = _wt(0)
 
-
         # "open" named pipe
-        self._pipe = ctypes.windll.kernel32.CreateNamedPipeW(
+        h = self.kernel32.CreateNamedPipeW(
             self._path,
             access,
             pipe_mode,
@@ -126,8 +116,9 @@ class NPopen:
             timeout,
             None,
         )
-        if self._pipe == INVALID_HANDLE_VALUE:
+        if h == INVALID_HANDLE_VALUE:
             raise _win_error()
+        self._pipe = h
 
     @property
     def path(self):
@@ -146,7 +137,7 @@ class NPopen:
             self.stream.close()
             self.stream = None
         if self._pipe is not None:
-            if not ctypes.windll.kernel32.CloseHandle(self._pipe):
+            if not self.kernel32.CloseHandle(self._pipe):
                 raise _win_error()
             self._pipe = None
 
@@ -154,8 +145,8 @@ class NPopen:
         """Wait for the pipe to open (the other end to be opened) and return file object to read/write."""
         if not self._pipe:
             raise RuntimeError("pipe has already been closed.")
-        if not ctypes.windll.kernel32.ConnectNamedPipe(self._pipe, None):
-            code = ctypes.GetLastError()
+        if not self.kernel32.ConnectNamedPipe(self._pipe, None):
+            code = ctypes.get_last_error()
             if code != ERROR_PIPE_CONNECTED: # (ok, just indicating that the client has already connected)(Issue#3)
                 raise _win_error(code)
 
@@ -208,6 +199,7 @@ class Win32RawIO(io.RawIOBase):
 
     def __init__(self, handle: PyHANDLE, rd: bool, wr: bool) -> None:
         super().__init__()
+        self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
         self.handle = handle  # Underlying Windows handle.
         self._readable: bool = rd
         self._writable: bool = wr
@@ -232,7 +224,7 @@ class Win32RawIO(io.RawIOBase):
         if self.closed:
             return
         if self.handle is not None:
-            ctypes.windll.kernel32.CloseHandle(self.handle)
+            self.kernel32.CloseHandle(self.handle)
             self.handle = None
 
         super().close()
@@ -248,9 +240,9 @@ class Win32RawIO(io.RawIOBase):
         nread =  _wt(0)
         buf = (ctypes.c_char * size).from_buffer(b)
 
-        success = ctypes.windll.kernel32.ReadFile(self.handle, buf, size, ctypes.byref(nread), None)
+        success = self.kernel32.ReadFile(self.handle, buf, size, ctypes.byref(nread), None)
         if not success:
-            code = ctypes.GetLastError()
+            code = ctypes.get_last_error()
             if code not in (ERROR_MORE_DATA, ERROR_IO_PENDING):
                 raise _win_error(code)
 
@@ -267,8 +259,7 @@ class Win32RawIO(io.RawIOBase):
         size = len(b)
         nwritten = wintypes.DWORD(0)
         buf = (ctypes.c_char * size).from_buffer_copy(b)
-        if not ctypes.windll.kernel32.WriteFile(self.handle, buf, size, ctypes.byref(nwritten), None):
-            code = ctypes.GetLastError()
-            raise _win_error(code)
+        if not self.kernel32.WriteFile(self.handle, buf, size, ctypes.byref(nwritten), None):
+            raise _win_error()
 
         return nwritten.value
