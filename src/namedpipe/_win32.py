@@ -1,4 +1,5 @@
-import win32pipe, win32file, win32api, winerror, win32con, pywintypes
+import ctypes
+from ctypes import wintypes
 from os import path
 import io
 from typing import TypeVar, NewType, Literal, IO, Optional, Union
@@ -6,8 +7,25 @@ from typing import TypeVar, NewType, Literal, IO, Optional, Union
 WritableBuffer = TypeVar("WritableBuffer")
 PyHANDLE = NewType("PyHANDLE", int)
 
+# Define global constants
+PIPE_ACCESS_DUPLEX = 0x00000003
+PIPE_ACCESS_INBOUND = 0x00000001
+PIPE_ACCESS_OUTBOUND = 0x00000002
+PIPE_TYPE_BYTE = 0x00000000
+PIPE_READMODE_BYTE = 0x00000000
+PIPE_WAIT = 0x00000000
+PIPE_UNLIMITED_INSTANCES = 0xFFFFFFFF
+ERROR_PIPE_CONNECTED = 535
+ERROR_BROKEN_PIPE = 109
+ERROR_MORE_DATA = 234
+ERROR_IO_PENDING = 997
+FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000
+INVALID_HANDLE_VALUE = -1
+
 id = 0
 
+def _wt(value: int) -> wintypes.DWORD:
+    return wintypes.DWORD(value)
 
 def _name_pipe():
     global id
@@ -23,11 +41,8 @@ def _name_pipe():
 
 def _win_error(code=None):
     if not code:
-        code = win32api.GetLastError()
-    return OSError(
-        f"[OS Error {code}] {win32api.FormatMessage(win32con.FORMAT_MESSAGE_FROM_SYSTEM,0,code,0,None)}"
-    )
-
+        code = ctypes.get_last_error()
+    return ctypes.WinError(code)
 
 class NPopen:
     def __init__(
@@ -44,6 +59,7 @@ class NPopen:
         if not isinstance(bufsize, int):
             raise TypeError("bufsize must be an integer")
 
+        self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
         self.stream: Union[IO, None] = None  # I/O stream of the pipe
         self._path = _name_pipe() if name is None else rf"\\.\pipe\{name}"
         self._rd = any(c in mode for c in "r+")
@@ -72,30 +88,25 @@ class NPopen:
         )
 
         self._bufsize = -1 if txt_mode and bufsize == 1 else bufsize
-
         if self._rd and self._wr:
-            access = win32pipe.PIPE_ACCESS_DUPLEX
+            access = _wt(PIPE_ACCESS_DUPLEX)
         elif self._rd:
-            access = win32pipe.PIPE_ACCESS_INBOUND
+            access = _wt(PIPE_ACCESS_INBOUND)
         elif self._wr:
-            access = win32pipe.PIPE_ACCESS_OUTBOUND
+            access = _wt(PIPE_ACCESS_OUTBOUND)
         else:
             raise ValueError("Invalid mode")
         # TODO: assess options: FILE_FLAG_WRITE_THROUGH, FILE_FLAG_OVERLAPPED, FILE_FLAG_FIRST_PIPE_INSTANCE
+        pipe_mode = _wt(PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT)
 
-        pipe_mode = (
-            win32pipe.PIPE_TYPE_BYTE
-            | win32pipe.PIPE_READMODE_BYTE
-            | win32pipe.PIPE_WAIT
-        )
         # TODO: assess options: PIPE_WAIT, PIPE_NOWAIT, PIPE_ACCEPT_REMOTE_CLIENTS, PIPE_REJECT_REMOTE_CLIENTS
 
-        max_instances = win32pipe.PIPE_UNLIMITED_INSTANCES  # 1
-        buffer_size = 0
-        timeout = 0
+        max_instances = _wt(1) # PIPE_UNLIMITED_INSTANCES returns 'invalid params'. Pipes are point-to-point anyway
+        buffer_size = _wt(0)
+        timeout = _wt(0)
 
         # "open" named pipe
-        self._pipe = win32pipe.CreateNamedPipe(
+        h = self.kernel32.CreateNamedPipeW(
             self._path,
             access,
             pipe_mode,
@@ -105,8 +116,9 @@ class NPopen:
             timeout,
             None,
         )
-        if self._pipe == win32file.INVALID_HANDLE_VALUE:
+        if h == INVALID_HANDLE_VALUE:
             raise _win_error()
+        self._pipe = h
 
     @property
     def path(self):
@@ -114,28 +126,27 @@ class NPopen:
         return self._path
 
     def __str__(self):
-        # return the path
         return self._path
 
     def close(self):
-        # close named pipe
+        """Close the named pipe.
+        A closed pipe cannot be used for further I/O operations. `close()` may
+        be called more than once without error.
+        """
         if self.stream is not None:
             self.stream.close()
             self.stream = None
         if self._pipe is not None:
-            if win32file.CloseHandle(self._pipe):
-                raise _win_error()
+            self.kernel32.CloseHandle(self._pipe)
             self._pipe = None
 
     def wait(self):
-
+        """Wait for the pipe to open (the other end to be opened) and return file object to read/write."""
         if not self._pipe:
             raise RuntimeError("pipe has already been closed.")
-
-        # wait for the pipe to open (the other end to be opened) and return fileobj to read/write
-        if win32pipe.ConnectNamedPipe(self._pipe, None):
-            code = win32api.GetLastError()
-            if code != 535: # ERROR_PIPE_CONNECTED (ok, just indicating that the client has already connected)(Issue#3)
+        if not self.kernel32.ConnectNamedPipe(self._pipe, None):
+            code = ctypes.get_last_error()
+            if code != ERROR_PIPE_CONNECTED: # (ok, just indicating that the client has already connected)(Issue#3)
                 raise _win_error(code)
 
         # create new io stream object
@@ -179,7 +190,7 @@ class NPopen:
 class Win32RawIO(io.RawIOBase):
     """Raw I/O stream layer over open Windows pipe handle.
 
-    `handle` is an open ``pywintypes.PyHANDLE`` object (from ``pywin32`` package) to
+    `handle` is an open Windows ``HANDLE`` object (from ``ctype`` package) to
     be wrapped by this class.
 
     Specify the read and write modes by boolean flags: ``rd`` and ``wr``.
@@ -187,7 +198,8 @@ class Win32RawIO(io.RawIOBase):
 
     def __init__(self, handle: PyHANDLE, rd: bool, wr: bool) -> None:
         super().__init__()
-        self.handle = handle  # PyHANDLE: Underlying Windows handle.
+        self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        self.handle = handle  # Underlying Windows handle.
         self._readable: bool = rd
         self._writable: bool = wr
 
@@ -211,7 +223,7 @@ class Win32RawIO(io.RawIOBase):
         if self.closed:
             return
         if self.handle is not None:
-            win32file.CloseHandle(self.handle)
+            self.kernel32.CloseHandle(self.handle)
             self.handle = None
 
         super().close()
@@ -224,23 +236,19 @@ class Win32RawIO(io.RawIOBase):
         assert self._readable
 
         size = len(b)
-        nread = 0
-        while nread < size:
-            try:
-                hr, res = win32file.ReadFile(self.handle, size - nread)
-                if hr in (winerror.ERROR_MORE_DATA, winerror.ERROR_IO_PENDING):
-                    raise _win_error(hr)
-            except pywintypes.error as e:
-                if e.args[0] == 109:  # broken pipe error
-                    break
-                else:
-                    raise e
-            if not len(res):
-                break
-            nnext = nread + len(res)
-            b[nread:nnext] = res
-            nread = nnext
-        return nread
+        nread =  _wt(0)
+        buf = (ctypes.c_char * size).from_buffer(b)
+
+        success = self.kernel32.ReadFile(self.handle, buf, size, ctypes.byref(nread), None)
+        if not success:
+            code = ctypes.get_last_error()
+            # ERROR_MORE_DATA - not big deal, will read next time
+            # ERROR_IO_PENDING - should not happen, unless use OVERLAPPING, which we don't so far
+            # ERROR_BROKEN_PIPE - pipe was closed from other end. While it is an error, test seemingly expects to receive 0 instead of exception
+            if code not in (ERROR_MORE_DATA, ERROR_IO_PENDING, ERROR_BROKEN_PIPE):
+                raise _win_error(code)
+
+        return nread.value
 
     def write(self, b):
         """Write buffer ``b`` to file, return number of bytes written.
@@ -250,7 +258,10 @@ class Win32RawIO(io.RawIOBase):
 
         assert self.handle is not None  # show type checkers we already checked
         assert self._writable
-        hr, n_written = win32file.WriteFile(self.handle, b)
-        if hr:
-            raise _win_error(hr)
-        return n_written
+        size = len(b)
+        nwritten = _wt(0)
+        buf = (ctypes.c_char * size).from_buffer_copy(b)
+        if not self.kernel32.WriteFile(self.handle, buf, _wt(size), ctypes.byref(nwritten), None):
+            raise _win_error()
+
+        return nwritten.value
