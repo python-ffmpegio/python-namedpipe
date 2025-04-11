@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-04-10
+
+### Changed
+
+- Dropped the dependency on `pywin32` and calling `kernel32` directly for Windows named pipes
+
 ## [0.2.5] - 2025-03-01
 
 ### Fixed
@@ -57,7 +63,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 Initial release
 
-[unreleased]: https://github.com/python-ffmpegio/python-namedpipe/compare/v0.2.5...HEAD
+[unreleased]: https://github.com/python-ffmpegio/python-namedpipe/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/python-ffmpegio/python-namedpipe/compare/v0.2.5...v0.3.0
 [0.2.5]: https://github.com/python-ffmpegio/python-namedpipe/compare/v0.2.4...v0.2.4
 [0.2.4]: https://github.com/python-ffmpegio/python-namedpipe/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/python-ffmpegio/python-namedpipe/compare/v0.2.2...v0.2.3
