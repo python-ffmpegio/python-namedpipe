@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [Unreleased][Unreleased]
 
+## [0.3.2] - 2026-06-29
+
+### Fixed
+
+- Fixed Windows named pipe creation (WinError 231) by dropping the exist-check
+  in favor of try-create
+
 ## [0.3.1] - 2026-06-28
 
 ### Fixed
