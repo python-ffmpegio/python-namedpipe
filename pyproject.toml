@@ -12,7 +12,7 @@ readme = "README.md"
 keywords = ["utility"]
 license = { text = "GPL-2.0 License" }
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
