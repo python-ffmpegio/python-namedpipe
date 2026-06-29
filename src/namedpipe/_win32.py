@@ -1,8 +1,7 @@
 import ctypes
-from ctypes import wintypes
-from os import path
 import io
-from typing import TypeVar, NewType, Literal, IO, Optional, Union
+from ctypes import wintypes
+from typing import IO, Literal, NewType, Optional, TypeVar, Union
 
 WritableBuffer = TypeVar("WritableBuffer")
 PyHANDLE = NewType("PyHANDLE", int)
@@ -25,6 +24,7 @@ GENERIC_READ = 0x80000000
 OPEN_EXISTING = 3
 
 id = 0
+
 
 def _wt(value: int) -> wintypes.DWORD:
     return wintypes.DWORD(value)
@@ -70,6 +70,7 @@ def _win_error(code=None):
         code = ctypes.get_last_error()
     return ctypes.WinError(code)
 
+
 class NPopen:
     def __init__(
         self,
@@ -85,21 +86,21 @@ class NPopen:
         if not isinstance(bufsize, int):
             raise TypeError("bufsize must be an integer")
 
-        self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        self.kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         self.stream: Union[IO, None] = None  # I/O stream of the pipe
         self._path = _name_pipe(self.kernel32) if name is None else rf"\\.\pipe\{name}"
-        self._rd = any(c in mode for c in "r+")
-        self._wr = any(c in mode for c in "wax+")
+        self._rd = any(mode and c in mode for c in "r+")
+        self._wr = any(mode and c in mode for c in "wax+")
 
         if encoding or errors or newline:
-            if "b" in mode:
+            if mode and "b" in mode:
                 raise ValueError(
                     "Cannot disambiguate when mode includes 't' and "
                     "and encoding or errors or newline is supplied."
                 )
             txt_mode = True
         else:
-            txt_mode = "t" in mode
+            txt_mode = mode and "t" in mode
 
         self._txt = (
             {
@@ -127,7 +128,9 @@ class NPopen:
 
         # TODO: assess options: PIPE_WAIT, PIPE_NOWAIT, PIPE_ACCEPT_REMOTE_CLIENTS, PIPE_REJECT_REMOTE_CLIENTS
 
-        max_instances = _wt(1) # PIPE_UNLIMITED_INSTANCES returns 'invalid params'. Pipes are point-to-point anyway
+        max_instances = _wt(
+            1
+        )  # PIPE_UNLIMITED_INSTANCES returns 'invalid params'. Pipes are point-to-point anyway
         buffer_size = _wt(0)
         timeout = _wt(0)
 
@@ -172,7 +175,9 @@ class NPopen:
             raise RuntimeError("pipe has already been closed.")
         if not self.kernel32.ConnectNamedPipe(self._pipe, None):
             code = ctypes.get_last_error()
-            if code != ERROR_PIPE_CONNECTED: # (ok, just indicating that the client has already connected)(Issue#3)
+            if (
+                code != ERROR_PIPE_CONNECTED
+            ):  # (ok, just indicating that the client has already connected)(Issue#3)
                 raise _win_error(code)
 
         # create new io stream object
@@ -182,7 +187,9 @@ class NPopen:
             Wrapper = (
                 io.BufferedRandom
                 if self._rd and self._wr
-                else io.BufferedReader if self._rd else io.BufferedWriter
+                else io.BufferedReader
+                if self._rd
+                else io.BufferedWriter
             )
             stream = Wrapper(
                 stream, self._bufsize if self._bufsize > 0 else io.DEFAULT_BUFFER_SIZE
@@ -224,7 +231,7 @@ class Win32RawIO(io.RawIOBase):
 
     def __init__(self, handle: PyHANDLE, rd: bool, wr: bool) -> None:
         super().__init__()
-        self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
+        self.kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         self.handle = handle  # Underlying Windows handle.
         self._readable: bool = rd
         self._writable: bool = wr
@@ -250,7 +257,7 @@ class Win32RawIO(io.RawIOBase):
             return
         if self.handle is not None:
             self.kernel32.CloseHandle(self.handle)
-            self.handle = None
+            self.handle = PyHANDLE(INVALID_HANDLE_VALUE)
 
         super().close()
 
@@ -262,10 +269,12 @@ class Win32RawIO(io.RawIOBase):
         assert self._readable
 
         size = len(b)
-        nread =  _wt(0)
+        nread = _wt(0)
         buf = (ctypes.c_char * size).from_buffer(b)
 
-        success = self.kernel32.ReadFile(self.handle, buf, size, ctypes.byref(nread), None)
+        success = self.kernel32.ReadFile(
+            self.handle, buf, size, ctypes.byref(nread), None
+        )
         if not success:
             code = ctypes.get_last_error()
             # ERROR_MORE_DATA - not big deal, will read next time
@@ -287,7 +296,9 @@ class Win32RawIO(io.RawIOBase):
         size = len(b)
         nwritten = _wt(0)
         buf = (ctypes.c_char * size).from_buffer_copy(b)
-        if not self.kernel32.WriteFile(self.handle, buf, _wt(size), ctypes.byref(nwritten), None):
+        if not self.kernel32.WriteFile(
+            self.handle, buf, _wt(size), ctypes.byref(nwritten), None
+        ):
             raise _win_error()
 
         return nwritten.value
