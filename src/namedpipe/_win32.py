@@ -30,39 +30,21 @@ def _wt(value: int) -> wintypes.DWORD:
     return wintypes.DWORD(value)
 
 
-def _name_pipe(kernel32) -> str:
+def _generate_pipe_path(name: str | None) -> str:
     """return next available numeric pipe name
 
-    :return: "\\.\pipe\###" where ### is a unique number
+    :return: "\\.\{name}" if name is given, else name is an auto-incremented integer
     """
+
     global id
 
-    notok = True
-    while notok:
-        name = rf"\\.\pipe\{id}"
+    if name is None:
+        pname = id
         id += 1
+    else:
+        pname = name
 
-        # make sure the pipe does not exist
-        h = kernel32.CreateFileW(name, GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
-
-        if h == INVALID_HANDLE_VALUE:
-            error_code = ctypes.get_last_error()
-
-            # ERROR_FILE_NOT_FOUND (2) means the pipe definitely does not exist
-            if error_code == 2:
-                notok = False
-            elif error_code in (231, 5):
-                # ERROR_ACCESS_DENIED (5) means it exists but your process lacks permissions
-                # ERROR_PIPE_BUSY (231) means the pipe exists but all instances are occupied
-                continue
-            else:
-                raise ctypes.WinError(error_code)
-        else:
-            # If it successfully opens (exists), close the handle
-            kernel32.CloseHandle(h)
-            notok = False
-
-    return name
+    return rf"\\.\pipe\{pname}"
 
 
 def _win_error(code=None):
@@ -72,6 +54,9 @@ def _win_error(code=None):
 
 
 class NPopen:
+    _path: str
+    _pipe: int
+
     def __init__(
         self,
         mode: Optional[str] = "r",
@@ -88,7 +73,6 @@ class NPopen:
 
         self.kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         self.stream: Union[IO, None] = None  # I/O stream of the pipe
-        self._path = _name_pipe(self.kernel32) if name is None else rf"\\.\pipe\{name}"
         self._rd = any(mode and c in mode for c in "r+")
         self._wr = any(mode and c in mode for c in "wax+")
 
@@ -134,20 +118,40 @@ class NPopen:
         buffer_size = _wt(0)
         timeout = _wt(0)
 
-        # "open" named pipe
-        h = self.kernel32.CreateNamedPipeW(
-            self._path,
-            access,
-            pipe_mode,
-            max_instances,
-            buffer_size,
-            buffer_size,
-            timeout,
-            None,
-        )
-        if h == INVALID_HANDLE_VALUE:
-            raise _win_error()
-        self._pipe = h
+        def try_open_pipe(name: str | None) -> bool:
+
+            # "open" named pipe
+            pipe_path = _generate_pipe_path(name)
+
+            h = self.kernel32.CreateNamedPipeW(
+                pipe_path,
+                access,
+                pipe_mode,
+                max_instances,
+                buffer_size,
+                buffer_size,
+                timeout,
+                None,
+            )
+
+            if h == INVALID_HANDLE_VALUE:
+                error_code = ctypes.get_last_error()
+
+                if name or error_code != 231:
+                    raise ctypes.WinError(error_code)
+                else:
+                    # ERROR_PIPE_BUSY (231) means the pipe exists but all instances are occupied
+                    return True  # already used
+
+            self._path = pipe_path
+            self._pipe = h
+
+            return False  # success
+
+        while try_open_pipe(name):
+            # loop until success.
+            # if name is given, runs only once
+            ...
 
     @property
     def path(self):
