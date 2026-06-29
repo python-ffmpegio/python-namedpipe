@@ -21,20 +21,46 @@ ERROR_MORE_DATA = 234
 ERROR_IO_PENDING = 997
 FORMAT_MESSAGE_FROM_SYSTEM = 0x00001000
 INVALID_HANDLE_VALUE = -1
+GENERIC_READ = 0x80000000
+OPEN_EXISTING = 3
 
 id = 0
 
 def _wt(value: int) -> wintypes.DWORD:
     return wintypes.DWORD(value)
 
-def _name_pipe():
+
+def _name_pipe(kernel32) -> str:
+    """return next available numeric pipe name
+
+    :return: "\\.\pipe\###" where ### is a unique number
+    """
     global id
 
     notok = True
     while notok:
         name = rf"\\.\pipe\{id}"
         id += 1
-        notok = path.exists(name)
+
+        # make sure the pipe does not exist
+        h = kernel32.CreateFileW(name, GENERIC_READ, 0, None, OPEN_EXISTING, 0, None)
+
+        if h == INVALID_HANDLE_VALUE:
+            error_code = ctypes.get_last_error()
+
+            # ERROR_FILE_NOT_FOUND (2) means the pipe definitely does not exist
+            if error_code == 2:
+                notok = False
+            elif error_code in (231, 5):
+                # ERROR_ACCESS_DENIED (5) means it exists but your process lacks permissions
+                # ERROR_PIPE_BUSY (231) means the pipe exists but all instances are occupied
+                continue
+            else:
+                raise ctypes.WinError(error_code)
+        else:
+            # If it successfully opens (exists), close the handle
+            kernel32.CloseHandle(h)
+            notok = False
 
     return name
 
@@ -61,7 +87,7 @@ class NPopen:
 
         self.kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
         self.stream: Union[IO, None] = None  # I/O stream of the pipe
-        self._path = _name_pipe() if name is None else rf"\\.\pipe\{name}"
+        self._path = _name_pipe(self.kernel32) if name is None else rf"\\.\pipe\{name}"
         self._rd = any(c in mode for c in "r+")
         self._wr = any(c in mode for c in "wax+")
 
